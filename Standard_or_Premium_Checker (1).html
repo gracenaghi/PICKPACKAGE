@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pick your package | Live Nation internal checker</title>
+<style>
+  :root {
+    --red: #E3262B;
+    --red-dark: #A31D23;
+    --black: #000000;
+    --ink: #1A1A1A;
+    --grey-700: #4D4D4D;
+    --grey-500: #8C8C8C;
+    --grey-200: #D9D9D9;
+    --grey-100: #F2F2F2;
+    --pink: #FFE0E4;
+    --white: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: "Helvetica Neue", "HelveticaNeue", "Helvetica Neue LT Std", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--white);
+    line-height: 1.45;
+  }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
+
+  /* top bar */
+  .bar {
+    background: var(--black);
+    color: var(--white);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 32px;
+  }
+  .logo { display: block; height: 26px; width: auto; }
+  .internal {
+    font-size: 13px; font-weight: 600;
+    border: 1.5px solid var(--red); color: var(--white);
+    padding: 4px 14px; border-radius: 999px;
+  }
+
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 36px 32px 64px; }
+  h1 { font-size: clamp(34px, 5vw, 52px); line-height: 1.02; letter-spacing: -.02em; margin: 0 0 8px; font-weight: 500; }
+  .lede { margin: 0 0 32px; color: var(--grey-700); font-size: 18px; max-width: 60ch; }
+
+  .grid { display: grid; grid-template-columns: 300px 1fr; gap: 40px; align-items: start; }
+
+  /* ---------- flow rail ---------- */
+  .rail { list-style: none; margin: 0; padding: 0; position: relative; }
+  .node { position: relative; display: grid; grid-template-columns: 34px 1fr; column-gap: 14px; padding-bottom: 28px; }
+  .node:last-child { padding-bottom: 0; }
+  .node::before { /* connector */
+    content: ""; position: absolute; left: 16px; top: 34px; bottom: 0; width: 2px; background: var(--grey-200);
+  }
+  .node:last-child::before { display: none; }
+  .node.passed::before { background: var(--red); }
+  .dot {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center;
+    border: 2px solid var(--grey-200); background: var(--white);
+    font-weight: 800; font-size: 15px; color: var(--grey-500);
+    transition: background-color .2s, border-color .2s, color .2s;
+  }
+  .node.current .dot { border-color: var(--red); color: var(--red); box-shadow: 0 0 0 4px var(--pink); }
+  .node.yes .dot { background: var(--red); border-color: var(--red); color: var(--white); }
+  .node.no .dot { background: var(--grey-700); border-color: var(--grey-700); color: var(--white); }
+  .node.skipped { opacity: .45; }
+  .node.result-premium .dot { background: var(--red); border-color: var(--red); color: var(--white); }
+  .node.result-standard .dot { background: var(--black); border-color: var(--black); color: var(--white); }
+  .node-body { min-height: 34px; display: flex; flex-direction: column; justify-content: center; }
+  .node-btn {
+    all: unset; cursor: pointer; display: block; font-weight: 700; font-size: 16px; line-height: 1.2;
+  }
+  .node-btn:disabled { cursor: default; }
+  .node-btn:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
+  .node-sub { font-size: 14px; color: var(--grey-700); margin-top: 2px; }
+  .branch {
+    margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--grey-500);
+    border: 1.5px dashed var(--grey-200); border-radius: 6px; padding: 2px 8px; width: fit-content;
+  }
+  .node.no .branch { color: var(--white); background: var(--black); border: 1.5px solid var(--black); }
+
+  /* ---------- main panel ---------- */
+  .panel { min-height: 420px; }
+  .step-meta { font-size: 15px; font-weight: 600; color: var(--red); margin: 0 0 10px; }
+  .q { font-size: clamp(26px, 3.4vw, 38px); line-height: 1.1; letter-spacing: -.015em; font-weight: 500; margin: 0 0 12px; max-width: 22ch; }
+  .help { color: var(--grey-700); font-size: 17px; margin: 0 0 24px; max-width: 56ch; }
+
+  .answers { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+  .btn {
+    cursor: pointer; border-radius: 10px; padding: 16px 40px; font-size: 20px; font-weight: 800;
+    border: 2px solid var(--black); background: var(--white); color: var(--black);
+    transition: background-color .15s, color .15s, transform .1s;
+  }
+  .btn:hover { background: var(--black); color: var(--white); }
+  .btn:active { transform: translateY(1px); }
+  .btn.yes { background: var(--red); border-color: var(--red); color: var(--white); }
+  .btn.yes:hover { background: var(--red-dark); border-color: var(--red-dark); }
+  .btn.ghost { border-color: var(--grey-200); color: var(--grey-700); font-size: 16px; font-weight: 600; padding: 10px 20px; }
+  .btn.ghost:hover { background: var(--grey-100); color: var(--black); }
+  .back-row { margin-top: 28px; }
+
+  /* calculator */
+  .calc { background: var(--grey-100); border-radius: 12px; padding: 18px 20px; margin: 0 0 24px; max-width: 560px; }
+  .calc h3 { margin: 0 0 4px; font-size: 16px; }
+  .calc p.note { margin: 0 0 14px; font-size: 14px; color: var(--grey-700); }
+  .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+  .field label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .field input {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--grey-200); border-radius: 8px; background: var(--white); font-size: 16px;
+  }
+  .calc-out { margin-top: 14px; font-size: 15px; min-height: 22px; }
+  .calc-out strong { font-weight: 800; }
+  .hint-yes { color: var(--red-dark); font-weight: 700; }
+  .hint-no { color: var(--grey-700); font-weight: 700; }
+
+  /* result */
+  .verdict { font-size: clamp(34px, 5vw, 56px); line-height: 1; letter-spacing: -.02em; font-weight: 500; margin: 0 0 10px; }
+  .verdict.premium { color: var(--red); }
+  .pkgs { font-size: 18px; margin: 0 0 6px; }
+  .pkgs b { font-weight: 800; }
+  .why { color: var(--grey-700); font-size: 17px; margin: 0 0 28px; max-width: 58ch; }
+  .needs h2 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; font-weight: 500; }
+  .needs .count { color: var(--grey-700); font-size: 15px; margin: 0 0 12px; }
+  .group-title { font-size: 15px; font-weight: 600; margin: 18px 0 6px; color: var(--red); }
+  .check { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--grey-200); cursor: pointer; }
+  .check:last-child { border-bottom: 1px solid var(--grey-200); }
+  .check input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--red); flex: none; cursor: pointer; }
+  .check span { font-size: 17px; }
+  .check input:checked + span { color: var(--grey-500); text-decoration: line-through; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+  .toast { font-size: 15px; font-weight: 600; color: var(--red-dark); align-self: center; min-height: 22px; }
+
+  @media (max-width: 820px) {
+    .wrap { padding: 24px 20px 48px; }
+    .bar { padding: 12px 20px; }
+    .grid { grid-template-columns: 1fr; gap: 28px; }
+    .fields { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+  @media print {
+    .bar, .rail, .actions, .answers, .back-row { display: none; }
+    .grid { display: block; }
+  }
+
+  /* inputs */
+  .inp-row { display: flex; align-items: center; gap: 0; max-width: 360px; margin: 0 0 14px; }
+  .inp-prefix { padding: 14px 14px; background: var(--grey-100); border: 1.5px solid var(--grey-200); border-right: 0; border-radius: 10px 0 0 10px; font-size: 22px; color: var(--grey-700); }
+  .inp-big { flex: 1; min-width: 0; padding: 14px 16px; font-size: 22px; border: 1.5px solid var(--grey-700); border-radius: 10px; background: var(--white); }
+  .inp-prefix + .inp-big { border-radius: 0 10px 10px 0; }
+  select.inp-big { max-width: 360px; width: 100%; appearance: auto; }
+  .live { min-height: 52px; margin: 0 0 18px; font-size: 16px; color: var(--grey-700); max-width: 56ch; }
+  .live strong { color: var(--ink); font-weight: 700; }
+  .err { color: var(--red-dark); font-weight: 600; margin: 0 0 16px; max-width: 56ch; }
+  .btn[disabled] { opacity: .35; cursor: not-allowed; }
+  .btn[disabled]:hover { background: var(--red); color: var(--white); }
+  .btn.next { background: var(--red); border-color: var(--red); color: var(--white); }
+  .btn.next:hover { background: var(--red-dark); border-color: var(--red-dark); }
+  .node-sub { word-break: break-word; }
+  .caveat { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--grey-200); font-size: 14px; font-weight: 700; color: var(--red); }
+  .pkg-desc { font-size: 19px; max-width: 52ch; margin: 0 0 16px; color: var(--ink); }
+  .reason { background: var(--grey-100); border-radius: 12px; padding: 14px 18px; margin: 0 0 26px; max-width: 58ch; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <img class="logo" alt="Live Nation" src="data:image/png;base64,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" width="201" height="26">
+  <span class="internal">Internal use only</span>
+</div>
+
+<main class="wrap">
+  <h1>Pick your package</h1>
+  <p class="lede">Answer each step about the client's campaign. The tool will recommend if a premium package is necessary and lists requirements</p>
+
+  <div class="grid">
+    <ol class="rail" id="rail" aria-label="Your route so far"></ol>
+    <section class="panel" id="panel" aria-live="polite"></section>
+  </div>
+
+  <footer class="caveat">Outcomes are not guaranteed and indicative only.</footer>
+</main>
+
+<script>
+/* ==========================================================================
+   EDIT HERE: thresholds, package names, objectives and partner requirements.
+   ========================================================================== */
+const CONFIG = {
+  currency: "$",
+  minBudget: 50000,          // step 1: budget must be at least this
+  minCPC: 2,                 // step 3: cost per click must be at least this
+  reachMax: 1000000,         // step 4: reach targets BELOW this are Premium
+  cpm: 10,                   // step 6: assumed cost per 1,000 impressions
+  engagementRateMin: 0.01,   // step 6: 1%
+  roiMin: 2,                 // step 8: ROI of this or more is Headliner
+
+  packages: {
+    clicks: "Sound Check",
+    reach: "Main Stage",
+    engagement: "On Repeat",
+    conversionHigh: "Headliner",
+    conversionLow: "Line-up"
+  },
+  objectives: ["Clicks", "Reach", "Engagement", "Conversion", "Awareness"],
+
+  // Description and "what you need from the client" for each package.
+  // The keys must match the package names above ("Standard" is used for Standard).
+  packageInfo: {
+    "Standard": {
+      description: "The client objective is compatible with the standard Live Nation Media Services protocol: brief using the traditional method to maximise profit.",
+      needs: ["Dates", "Brief"]
+    },
+    "Sound Check": {
+      description: "This package is the beginning of the lower funnel and is designed to maximise clicks.",
+      needs: ["Budget confirmed", "Creative and copy"]
+    },
+    "Main Stage": {
+      description: "This package will saturate data segments and proprietary users.",
+      needs: ["Budget confirmed", "Creative and copy"]
+    },
+    "On Repeat": {
+      description: "This package is designed to maximise engagement and should include an engagement product to enhance results.",
+      needs: ["Budget confirmed", "Creative and copy", "Engagement product"]
+    },
+    "Headliner": {
+      description: "This package is designed to maximise high value conversion, so tracking is crucial.",
+      needs: ["Budget confirmed", "Creative and copy", "Conversion definition", "Tracking", "Creative guidelines", "Approved journey"]
+    },
+    "Line-up": {
+      description: "This package is designed to maximise high value conversion, so creative and mechanic are crucial.",
+      needs: ["Budget confirmed", "Creative and copy", "Conversion definition", "Tracking", "Engagement product", "Creative guidelines"]
+    }
+  }
+};
+/* ========================================================================== */
+
+const C = CONFIG;
+const money = n => C.currency + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const fmt = n => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const pct = n => (n * 100).toLocaleString(undefined, { maximumFractionDigits: 2 }) + "%";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const parse = s => { const n = parseFloat(String(s).replace(/[^0-9.\-]/g, "")); return isNaN(n) ? null : n; };
+const premium = (pkg, why) => ({ result: { type: "premium", pkg, why } });
+const standard = why => ({ result: { type: "standard", pkg: null, why } });
+const hint = (ok, text) => `<span class="${ok ? "hint-yes" : "hint-no"}">${text}</span>`;
+
+/* ---------------- the flow: one entry per step ID ---------------- */
+const NODES = {
+  1: {
+    label: "Client budget", kind: "number", prefix: C.currency,
+    text: "What is the client's budget?",
+    help: `The minimum is ${money(C.minBudget)}. Anything lower lands on Standard.`,
+    summary: v => money(v),
+    live: (vals, v) => v > 0 ? hint(v >= C.minBudget, `${money(v)} ${v >= C.minBudget ? "meets" : "is below"} the ${money(C.minBudget)} minimum.`) : "",
+    evaluate: (vals, v) => v >= C.minBudget ? { next: 2 } : standard(`The budget of ${money(v)} is below the ${money(C.minBudget)} minimum.`)
+  },
+  2: {
+    label: "Objective", kind: "select", options: C.objectives,
+    text: "What is the client's main objective?",
+    help: "This decides which outcome we measure.",
+    summary: v => v,
+    evaluate: (vals, v) => ({ Clicks: { next: 3 }, Reach: { next: 4 }, Engagement: { next: 5 }, Conversion: { next: 7 } }[v] || standard("Awareness campaigns are Standard."))
+  },
+  3: {
+    label: "Clicks target", kind: "number",
+    text: "How many clicks does the client want?",
+    help: `Enter the target volume. The cost per click must be at least ${money(C.minCPC)}.`,
+    summary: v => `${fmt(v)} clicks`,
+    live: (vals, v) => v > 0 ? hint(vals[1] / v >= C.minCPC, `Cost per click would be <strong>${money(vals[1] / v)}</strong>. ${vals[1] / v >= C.minCPC ? "That meets the minimum." : `The most this budget supports is <strong>${fmt(Math.floor(vals[1] / C.minCPC))}</strong> clicks.`}`) : "",
+    evaluate: (vals, v) => {
+      const cpc = vals[1] / v;
+      return cpc >= C.minCPC
+        ? premium(C.packages.clicks, `Cost per click of ${money(cpc)} meets the ${money(C.minCPC)} minimum.`)
+        : { error: `Cost per click would be ${money(cpc)}, and it must be at least ${money(C.minCPC)}. With a ${money(vals[1])} budget the most you can target is ${fmt(Math.floor(vals[1] / C.minCPC))} clicks. Lower the target to continue.` };
+    }
+  },
+  4: {
+    label: "Reach target", kind: "number",
+    text: "How many people does the client want to reach?",
+    help: `Reach targets under ${fmt(C.reachMax)} are Premium.`,
+    summary: v => `${fmt(v)} people`,
+    live: (vals, v) => v > 0 ? hint(v < C.reachMax, `${fmt(v)} is ${v < C.reachMax ? "under" : "at or above"} ${fmt(C.reachMax)}.`) : "",
+    evaluate: (vals, v) => v < C.reachMax
+      ? premium(C.packages.reach, `A reach target of ${fmt(v)} is under ${fmt(C.reachMax)}.`)
+      : standard(`A reach target of ${fmt(v)} is ${fmt(C.reachMax)} or more.`)
+  },
+  5: {
+    label: "Engagement product", kind: "yesno",
+    text: "Is the client using the Engagement product?",
+    help: "Premium engagement packages need the Engagement product.",
+    summary: v => v ? "Yes" : "No",
+    evaluate: (vals, v) => v ? { next: 6 } : standard("The client is not using the Engagement product.")
+  },
+  6: {
+    label: "Engagement target", kind: "number",
+    text: "What engagement volume is the client targeting?",
+    help: `We turn the budget into impressions at a ${money(C.cpm)} CPM, then work out the engagement rate. ${pct(C.engagementRateMin)} or higher is Premium.`,
+    summary: v => `${fmt(v)} engagements`,
+    live: (vals, v) => {
+      if (!(v > 0)) return "";
+      const imp = vals[1] / C.cpm * 1000, rate = v / imp;
+      return hint(rate >= C.engagementRateMin, `Impressions: <strong>${fmt(imp)}</strong>. Engagement rate: <strong>${pct(rate)}</strong>.`);
+    },
+    evaluate: (vals, v) => {
+      const imp = vals[1] / C.cpm * 1000, rate = v / imp;
+      const detail = `${fmt(v)} engagements on ${fmt(imp)} impressions is an engagement rate of ${pct(rate)}`;
+      return rate >= C.engagementRateMin
+        ? premium(C.packages.engagement, `${detail}, at or above ${pct(C.engagementRateMin)}.`)
+        : standard(`${detail}, below ${pct(C.engagementRateMin)}.`);
+    }
+  },
+  7: {
+    label: "Conversion volume", kind: "number",
+    text: "How many conversions does the client want?",
+    help: "Enter the target volume of conversions.",
+    summary: v => `${fmt(v)} conversions`,
+    evaluate: () => ({ next: 8 })
+  },
+  8: {
+    label: "Conversion value", kind: "number", prefix: C.currency,
+    text: "What is the value of one conversion?",
+    help: `ROI of ${fmt(C.roiMin)}x or more qualifies for ${C.packages.conversionHigh.toLowerCase()}`,
+    summary: v => `${money(v)} each`,
+    live: (vals, v) => {
+      if (!(v > 0)) return "";
+      const rev = v * vals[7], roi = rev / vals[1];
+      return hint(roi >= C.roiMin, `Revenue: <strong>${money(rev)}</strong>. ROI: <strong>${fmt(roi)}x</strong>.`);
+    },
+    evaluate: (vals, v) => {
+      const rev = v * vals[7], roi = rev / vals[1];
+      const detail = `${fmt(vals[7])} conversions at ${money(v)} is ${money(rev)} of revenue on a ${money(vals[1])} budget, an ROI of ${fmt(roi)}x`;
+      return roi >= C.roiMin
+        ? premium(C.packages.conversionHigh, `${detail}, at or above ${fmt(C.roiMin)}x.`)
+        : premium(C.packages.conversionLow, `${detail}, below ${fmt(C.roiMin)}x.`);
+    }
+  }
+};
+
+/* ---------------- state ---------------- */
+const state = { path: [], vals: {}, current: 1, result: null, error: "", received: {} };
+const rail = document.getElementById("rail");
+const panel = document.getElementById("panel");
+
+const infoFor = res => C.packageInfo[res.type === "premium" ? res.pkg : "Standard"];
+function needsFor(res) {
+  return [{ title: "", items: infoFor(res).needs }];
+}
+const allNeeds = res => needsFor(res).flatMap(g => g.items);
+
+/* ---------------- rail: the route actually taken ---------------- */
+function renderRail() {
+  let html = "";
+  state.path.forEach((id, i) => {
+    const n = NODES[id];
+    html += `<li class="node yes passed">
+      <div class="dot" aria-hidden="true">&#10003;</div>
+      <div class="node-body">
+        <button class="node-btn" data-edit="${i}" aria-label="${esc(n.label)}: ${esc(n.summary(state.vals[id]))}. Change answer">${esc(n.label)}</button>
+        <span class="node-sub">${esc(n.summary(state.vals[id]))}</span>
+      </div></li>`;
+  });
+  if (state.current !== null) {
+    const n = NODES[state.current];
+    html += `<li class="node current">
+      <div class="dot" aria-hidden="true">${state.path.length + 1}</div>
+      <div class="node-body"><span class="node-btn" style="cursor:default">${esc(n.label)}</span><span class="node-sub">Answering now</span></div></li>`;
+  }
+  const r = state.result;
+  html += `<li class="node ${r ? (r.type === "premium" ? "result-premium" : "result-standard") : ""}">
+    <div class="dot" aria-hidden="true">${r ? (r.type === "premium" ? "&#9733;" : "&#9679;") : "&#9679;"}</div>
+    <div class="node-body">
+      <span class="node-btn" style="cursor:default">${r ? esc(r.type === "premium" ? "Premium: " + r.pkg : "Standard package") : "Result"}</span>
+      <span class="node-sub">${r ? "Your result" : "Depends on your answers"}</span>
+    </div></li>`;
+  rail.innerHTML = html;
+}
+
+/* ---------------- question panel ---------------- */
+function renderQuestion() {
+  const id = state.current, n = NODES[id], v = state.vals[id];
+  const stepNo = state.path.length + 1;
+  let input = "";
+  if (n.kind === "number") {
+    input = `<div class="inp-row">${n.prefix ? `<span class="inp-prefix">${esc(n.prefix)}</span>` : ""}<input class="inp-big" id="inp" inputmode="decimal" autocomplete="off" aria-label="${esc(n.text)}" value="${v !== undefined && v !== null ? esc(fmt(v)) : ""}"></div>
+      <div class="live" id="live">${v > 0 && n.live ? n.live(state.vals, v) : ""}</div>`;
+  } else if (n.kind === "select") {
+    input = `<div class="inp-row"><select class="inp-big" id="inp" aria-label="${esc(n.text)}"><option value="">Choose one</option>${n.options.map(o => `<option ${v === o ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></div>`;
+  }
+  const actions = n.kind === "yesno"
+    ? `<div class="answers"><button class="btn yes" data-yn="yes">Yes</button><button class="btn" data-yn="no">No</button></div>`
+    : `<div class="answers"><button class="btn next" id="next" data-next="1" ${v === undefined || v === null || v === "" ? "disabled" : ""}>Next</button></div>`;
+  panel.innerHTML = `
+    <p class="step-meta">Step ${stepNo}: ${esc(n.label)}</p>
+    <h2 class="q" tabindex="-1" id="q-heading">${esc(n.text)}</h2>
+    <p class="help">${esc(n.help || "")}</p>
+    ${input}
+    ${state.error ? `<p class="err" role="alert">${esc(state.error)}</p>` : ""}
+    ${actions}
+    ${state.path.length ? `<div class="back-row"><button class="btn ghost" data-back="1">Back</button></div>` : ""}`;
+}
+
+/* ---------------- result panel ---------------- */
+function renderResult() {
+  const r = state.result, isP = r.type === "premium";
+  const items = allNeeds(r), got = items.filter(t => state.received[t]).length;
+  const groups = needsFor(r).map(g => `
+    ${g.items.map(t => `<label class="check"><input type="checkbox" data-need="${esc(t)}" ${state.received[t] ? "checked" : ""}><span>${esc(t)}</span></label>`).join("")}`).join("");
+  panel.innerHTML = `
+    <p class="step-meta">Result</p>
+    <h2 class="verdict ${isP ? "premium" : ""}" tabindex="-1" id="q-heading">${isP ? "Premium: " + esc(r.pkg) : "Standard package"}</h2>
+    <p class="pkg-desc">${esc(infoFor(r).description)}</p>
+    <div class="reason"><strong>Why this result:</strong> ${esc(r.why)}</div>
+    <div class="needs">
+      <h2>What you need from the client</h2>
+      <p class="count" id="need-count">${got} of ${items.length} received</p>
+      ${groups}
+    </div>
+    <div class="actions">
+      <button class="btn yes" data-copy="1">Copy summary</button>
+      <button class="btn" data-restart="1">Start again</button>
+      <button class="btn ghost" data-back="1">Back</button>
+      <span class="toast" id="toast" role="status"></span>
+    </div>`;
+}
+
+function summaryText() {
+  const r = state.result, L = [];
+  L.push(`Result: ${r.type === "premium" ? "Premium: " + r.pkg : "Standard package"}`);
+  L.push(infoFor(r).description, `Why: ${r.why}`, "", "Answers:");
+  state.path.forEach(id => L.push(`- ${NODES[id].label}: ${NODES[id].summary(state.vals[id])}`));
+  L.push("", "Needed from the client:");
+  allNeeds(r).forEach(t => L.push(`[${state.received[t] ? "x" : " "}] ${t}`));
+  return L.join("\n");
+}
+
+/* ---------------- engine ---------------- */
+function render(focus) {
+  renderRail();
+  state.result ? renderResult() : renderQuestion();
+  if (focus) {
+    const f = document.getElementById("inp") || document.getElementById("q-heading");
+    if (f) f.focus({ preventScroll: true });
+  }
+}
+function submit() {
+  const id = state.current, n = NODES[id], v = state.vals[id];
+  if (v === undefined || v === null || v === "" || (n.kind === "number" && !(v > 0))) return;
+  const out = n.evaluate(state.vals, v);
+  if (out.error) { state.error = out.error; render(false); const e = document.getElementById("inp"); if (e) e.focus(); return; }
+  state.error = "";
+  state.path.push(id);
+  if (out.result) { state.result = out.result; state.current = null; }
+  else state.current = out.next;
+  render(true);
+}
+function goBack() {
+  state.error = "";
+  if (state.result) { state.result = null; state.current = state.path.pop(); }
+  else if (state.path.length) state.current = state.path.pop();
+  render(true);
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.next) submit();
+  else if (t.dataset.yn) { state.vals[state.current] = t.dataset.yn === "yes"; submit(); }
+  else if (t.dataset.back) goBack();
+  else if (t.dataset.edit !== undefined) {
+    const i = Number(t.dataset.edit);
+    state.current = state.path[i]; state.path = state.path.slice(0, i); state.result = null; state.error = ""; render(true);
+  }
+  else if (t.dataset.restart) { Object.assign(state, { path: [], vals: {}, current: 1, result: null, error: "", received: {} }); render(true); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  else if (t.dataset.copy) {
+    const text = summaryText();
+    const done = () => { const el = document.getElementById("toast"); if (el) el.textContent = "Summary copied"; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+    else fallbackCopy(text, done);
+  }
+});
+function fallbackCopy(text, done) {
+  const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } catch (_) { const el = document.getElementById("toast"); if (el) el.textContent = "Copy failed. Select the list and copy it manually."; }
+  document.body.removeChild(ta);
+}
+document.addEventListener("input", e => {
+  if (e.target.id !== "inp" || state.current === null) return;
+  const n = NODES[state.current];
+  const v = n.kind === "number" ? parse(e.target.value) : e.target.value;
+  state.vals[state.current] = v; state.error = "";
+  const live = document.getElementById("live"); if (live) live.innerHTML = v > 0 && n.live ? n.live(state.vals, v) : "";
+  const nx = document.getElementById("next"); if (nx) nx.disabled = (n.kind === "number") ? !(v > 0) : !v;
+  const err = panel.querySelector(".err"); if (err) err.remove();
+});
+document.addEventListener("change", e => {
+  if (e.target.id === "inp" && e.target.tagName === "SELECT") {
+    state.vals[state.current] = e.target.value; const nx = document.getElementById("next"); if (nx) nx.disabled = !e.target.value;
+  }
+  const n = e.target.dataset && e.target.dataset.need;
+  if (n !== undefined && n !== "" && state.result) {
+    state.received[n] = e.target.checked;
+    const items = allNeeds(state.result), el = document.getElementById("need-count");
+    if (el) el.textContent = `${items.filter(t => state.received[t]).length} of ${items.length} received`;
+  }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.id === "inp") { e.preventDefault(); submit(); }
+});
+
+render(false);
+</script>
+</body>
+</html>
